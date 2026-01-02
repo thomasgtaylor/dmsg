@@ -21,11 +21,11 @@ import (
     "github.com/thomasgtaylor/dmsg"
 )
 
-response := ddmsg.Response(
-    ddmsg.Container(
-        ddmsg.AccentColor(5763719), // green
-        ddmsg.Section(
-            ddmsg.Text("## Hello, World!"),
+response := dmsg.Response(
+    dmsg.Container(
+        dmsg.AccentColor(5763719), // green
+        dmsg.Section(
+            dmsg.Text("## Hello, World!"),
         ),
     ),
 )
@@ -49,7 +49,7 @@ dmsg.Response(
         dmsg.Section(
             dmsg.Text("## Error\n\nYou don't have enough coins"),
             dmsg.Accessory(
-                dmsg.Thumbnail(copImageURL, "Image of Zonki cop"),
+                dmsg.Thumbnail(errorImageURL, "Error icon"),
             ),
         ),
         dmsg.Divider(),
@@ -64,7 +64,7 @@ dmsg.Response(
     dmsg.Container(
         dmsg.AccentColor(5763719), // green
         dmsg.Section(
-            dmsg.Text("## Success!\n\nYou won **1,000 Z$**"),
+            dmsg.Text("## Success!\n\nYou won **1,000 coins**"),
             dmsg.Accessory(
                 dmsg.Thumbnail(trophyURL, trophyDesc),
             ),
