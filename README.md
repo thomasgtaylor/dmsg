@@ -1,4 +1,4 @@
-# discordmsg
+# dmsg
 
 Type-safe Discord message component builder for Components v2.
 
