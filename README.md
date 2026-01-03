@@ -24,8 +24,8 @@ import (
 response := dmsg.Response(
     dmsg.Container(
         dmsg.AccentColor(5763719), // green
-        dmsg.Section(
-            dmsg.Text("## Hello, World!"),
+        dmsg.ContainerSection(
+            dmsg.SectionText("## Hello, World!"),
         ),
     ),
 )
@@ -46,13 +46,13 @@ response := dmsg.Response(
 dmsg.Response(
     dmsg.Container(
         dmsg.AccentColor(16740978), // red
-        dmsg.Section(
-            dmsg.Text("## Error\n\nYou don't have enough coins"),
-            dmsg.Accessory(
+        dmsg.ContainerSection(
+            dmsg.SectionText("## Error\n\nYou don't have enough coins"),
+            dmsg.SectionAccessory(
                 dmsg.Thumbnail(errorImageURL, "Error icon"),
             ),
         ),
-        dmsg.Divider(),
+        dmsg.ContainerSeparator(),
     ),
 )
 ```
@@ -63,14 +63,14 @@ dmsg.Response(
 dmsg.Response(
     dmsg.Container(
         dmsg.AccentColor(5763719), // green
-        dmsg.Section(
-            dmsg.Text("## Success!\n\nYou won **1,000 coins**"),
-            dmsg.Accessory(
+        dmsg.ContainerSection(
+            dmsg.SectionText("## Success!\n\nYou won **1,000 coins**"),
+            dmsg.SectionAccessory(
                 dmsg.Thumbnail(trophyURL, trophyDesc),
             ),
         ),
-        dmsg.Divider(),
-        dmsg.Actions(
+        dmsg.ContainerSeparator(),
+        dmsg.ContainerActionRow(
             dmsg.Button("Play Again", "play_again", dmsg.Style(dmsg.Success)),
             dmsg.Button("Quit", "quit", dmsg.Style(dmsg.Secondary)),
         ),
@@ -84,8 +84,8 @@ dmsg.Response(
 dmsg.Ephemeral(
     dmsg.Container(
         dmsg.AccentColor(14197815), // gold
-        dmsg.Section(
-            dmsg.Text("This message is only visible to you"),
+        dmsg.ContainerSection(
+            dmsg.SectionText("This message is only visible to you"),
         ),
     ),
 )
@@ -97,8 +97,8 @@ dmsg.Ephemeral(
 dmsg.Update(
     dmsg.Container(
         dmsg.AccentColor(16777215), // white
-        dmsg.Section(
-            dmsg.Text("## Game Closed\n\nThanks for playing!"),
+        dmsg.ContainerSection(
+            dmsg.SectionText("## Game Closed\n\nThanks for playing!"),
         ),
     ),
 )
@@ -112,78 +112,86 @@ dmsg.Update(
 - `Ephemeral(components ...Component)` - Ephemeral response
 - `Update(components ...Component)` - Update message response
 
-**Note:** Use `Container()` and `ActionRow()` as top-level components. Use `Actions()` only inside containers.
+### Top-Level Components
 
-### Layout Components
+Components that can be passed directly to `Response`, `Ephemeral`, or `Update`:
 
-**Container**
+- `Container()` - Container with optional accent color and nested components
+- `ActionRow()` - Action row with buttons (top-level)
+- `TextDisplay()` - Text display component (top-level)
+- `Separator()` - Separator/divider component (top-level)
+
+### Container Components
+
+Components for use inside `Container()`:
+
+**ContainerSection** - Section with text and optional accessory
 ```go
-dmsg.Container(
-    dmsg.AccentColor(color int),
-    dmsg.Spoiler(),
-    // child components...
+dmsg.ContainerSection(
+    dmsg.SectionText("content"),
+    dmsg.SectionAccessory(component),
 )
 ```
 
-**Section**
+**ContainerSeparator** - Separator/divider
 ```go
-dmsg.Section(
-    dmsg.Text("content"),
-    dmsg.Accessory(component),
-)
-```
-
-**Divider**
-```go
-dmsg.Divider(
+dmsg.ContainerSeparator(
     dmsg.WithDivider(true),
     dmsg.Spacing(discordgo.SeparatorSpacingSizeSmall),
 )
 ```
 
-**Actions** (for use inside containers)
+**ContainerActionRow** - Action row with buttons
 ```go
-dmsg.Actions(
+dmsg.ContainerActionRow(
     dmsg.Button(...),
     dmsg.Button(...),
 )
 ```
 
-**ActionRow** (for use at top-level)
+**ContainerFile** - File attachment
 ```go
-dmsg.ActionRow(
-    dmsg.Button(...),
-    dmsg.Button(...),
+dmsg.ContainerFile(url,
+    dmsg.Spoiler(),
 )
 ```
 
-### Content Components
-
-**Text**
+**ContainerGallery** - Media gallery
 ```go
-dmsg.Text("## Markdown content")
+dmsg.ContainerGallery(
+    dmsg.Media(url, description, spoiler),
+    dmsg.Media(url, description, spoiler),
+)
 ```
 
-**Thumbnail**
+### Section Components
+
+Components for use inside `ContainerSection()`:
+
+**SectionText** - Text display
+```go
+dmsg.SectionText("## Markdown content")
+```
+
+**SectionAccessory** - Accessory (thumbnail or button)
+```go
+dmsg.SectionAccessory(
+    dmsg.Thumbnail(url, description),
+)
+```
+
+### Standalone Components
+
+**Thumbnail** - Can be used as accessory or standalone
 ```go
 dmsg.Thumbnail(url, description,
     dmsg.Spoiler(),
 )
 ```
 
-**Gallery**
+**Media** - Helper for gallery items
 ```go
-dmsg.Gallery(
-    dmsg.Media(url, description, spoiler),
-    dmsg.Media(url, description, spoiler),
-)
-```
-
-**File**
-```go
-dmsg.File("attachment://file.txt",
-    dmsg.Spoiler(),
-)
+dmsg.Media(url, description, spoiler)
 ```
 
 ### Interactive Components
@@ -211,13 +219,18 @@ Options are typed per component. The compiler prevents mistakes:
 ```go
 // ✅ This compiles
 dmsg.Container(
-    dmsg.AccentColor(red),  // ContainerOption
-    dmsg.Section(...),      // Also ContainerOption
+    dmsg.AccentColor(red),       // ContainerOption
+    dmsg.ContainerSection(...),  // Also ContainerOption
 )
 
 // ❌ This won't compile
 dmsg.Container(
     dmsg.Style(dmsg.Primary),  // ButtonOption - wrong type!
+)
+
+// ✅ Clear naming shows where components belong
+dmsg.ContainerSection(        // For use in Container
+    dmsg.SectionText(...),     // For use in Section
 )
 ```
 
@@ -228,14 +241,14 @@ dmsg.Container(
 ```go
 dmsg.Container(
     dmsg.AccentColor(gold),
-    dmsg.Section(
-        dmsg.Text("## Section 1"),
-        dmsg.Text("Content here"),
+    dmsg.ContainerSection(
+        dmsg.SectionText("## Section 1"),
+        dmsg.SectionText("Content here"),
     ),
-    dmsg.Divider(),
-    dmsg.Section(
-        dmsg.Text("## Section 2"),
-        dmsg.Text("More content"),
+    dmsg.ContainerSeparator(),
+    dmsg.ContainerSection(
+        dmsg.SectionText("## Section 2"),
+        dmsg.SectionText("More content"),
     ),
 )
 ```
@@ -243,9 +256,9 @@ dmsg.Container(
 ### Section with Accessory
 
 ```go
-dmsg.Section(
-    dmsg.Text("Main content"),
-    dmsg.Accessory(
+dmsg.ContainerSection(
+    dmsg.SectionText("Main content"),
+    dmsg.SectionAccessory(
         dmsg.Thumbnail(imageURL, imageDesc),
     ),
 )
@@ -254,10 +267,22 @@ dmsg.Section(
 ### Multiple Buttons
 
 ```go
-dmsg.Actions(
+dmsg.ContainerActionRow(
     dmsg.Button("Confirm", "confirm", dmsg.Style(dmsg.Success)),
     dmsg.Button("Cancel", "cancel", dmsg.Style(dmsg.Danger)),
     dmsg.LinkButton("Help", "https://example.com"),
+)
+```
+
+### Top-Level Components
+
+```go
+dmsg.Update(
+    dmsg.TextDisplay("Simple text message"),
+    dmsg.Separator(),
+    dmsg.ActionRow(
+        dmsg.Button("Action", "action_id"),
+    ),
 )
 ```
 

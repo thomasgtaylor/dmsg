@@ -122,8 +122,8 @@ type SectionOption interface {
 	applyToSection(*discordgo.Section)
 }
 
-// Section creates a section component
-func Section(opts ...SectionOption) ContainerOption {
+// ContainerSection creates a section component for use inside containers
+func ContainerSection(opts ...SectionOption) ContainerOption {
 	section := &discordgo.Section{
 		Components: []discordgo.MessageComponent{},
 	}
@@ -149,17 +149,24 @@ func (o accessoryOption) applyToSection(s *discordgo.Section) {
 	s.Accessory = o.component
 }
 
-// Accessory sets the section's accessory (Button or Thumbnail)
-func Accessory(component Component) SectionOption {
+// SectionAccessory sets the section's accessory (Button or Thumbnail)
+func SectionAccessory(component Component) SectionOption {
 	return accessoryOption{component}
 }
 
-// Text creates a text display component
-func Text(content string) SectionOption {
+// SectionText creates a text display component for use inside sections
+func SectionText(content string) SectionOption {
 	return sectionComponentOption{
 		&discordgo.TextDisplay{
 			Content: content,
 		},
+	}
+}
+
+// TextDisplay creates a text display component for use at top-level
+func TextDisplay(content string) Component {
+	return &discordgo.TextDisplay{
+		Content: content,
 	}
 }
 
@@ -182,13 +189,13 @@ func Thumbnail(url, description string, opts ...ThumbnailOption) Component {
 	return thumbnail
 }
 
-// DividerOption configures a Divider (Separator)
-type DividerOption interface {
-	applyToDivider(*discordgo.Separator)
+// SeparatorOption configures a Separator
+type SeparatorOption interface {
+	applyToSeparator(*discordgo.Separator)
 }
 
-// Divider creates a separator component
-func Divider(opts ...DividerOption) ContainerOption {
+// ContainerSeparator creates a separator component for use inside containers
+func ContainerSeparator(opts ...SeparatorOption) ContainerOption {
 	truth := true
 	spacing := discordgo.SeparatorSpacingSizeSmall
 	separator := &discordgo.Separator{
@@ -196,21 +203,35 @@ func Divider(opts ...DividerOption) ContainerOption {
 		Spacing: &spacing,
 	}
 	for _, opt := range opts {
-		opt.applyToDivider(separator)
+		opt.applyToSeparator(separator)
 	}
 	return containerComponentOption{separator}
+}
+
+// Separator creates a separator component for use at top-level
+func Separator(opts ...SeparatorOption) Component {
+	truth := true
+	spacing := discordgo.SeparatorSpacingSizeSmall
+	separator := &discordgo.Separator{
+		Divider: &truth,
+		Spacing: &spacing,
+	}
+	for _, opt := range opts {
+		opt.applyToSeparator(separator)
+	}
+	return separator
 }
 
 type withDividerOption struct {
 	show bool
 }
 
-func (o withDividerOption) applyToDivider(s *discordgo.Separator) {
+func (o withDividerOption) applyToSeparator(s *discordgo.Separator) {
 	s.Divider = &o.show
 }
 
 // WithDivider sets whether to show the divider line
-func WithDivider(show bool) DividerOption {
+func WithDivider(show bool) SeparatorOption {
 	return withDividerOption{show}
 }
 
@@ -218,17 +239,17 @@ type spacingOption struct {
 	size discordgo.SeparatorSpacingSize
 }
 
-func (o spacingOption) applyToDivider(s *discordgo.Separator) {
+func (o spacingOption) applyToSeparator(s *discordgo.Separator) {
 	s.Spacing = &o.size
 }
 
-// Spacing sets the divider spacing (1 = small, 2 = large)
-func Spacing(size discordgo.SeparatorSpacingSize) DividerOption {
+// Spacing sets the separator spacing (1 = small, 2 = large)
+func Spacing(size discordgo.SeparatorSpacingSize) SeparatorOption {
 	return spacingOption{size}
 }
 
-// Actions creates an action row with buttons for use inside containers
-func Actions(buttons ...Component) ContainerOption {
+// ContainerActionRow creates an action row with buttons for use inside containers
+func ContainerActionRow(buttons ...Component) ContainerOption {
 	return containerComponentOption{
 		&discordgo.ActionsRow{
 			Components: buttons,
@@ -326,8 +347,8 @@ type FileOption interface {
 	applyToFile(*discordgo.FileComponent)
 }
 
-// File creates a file component
-func File(url string, opts ...FileOption) ContainerOption {
+// ContainerFile creates a file component for use inside containers
+func ContainerFile(url string, opts ...FileOption) ContainerOption {
 	file := &discordgo.FileComponent{
 		File: discordgo.UnfurledMediaItem{
 			URL: url,
@@ -355,8 +376,8 @@ func Media(url, description string, spoiler bool) MediaItem {
 	}
 }
 
-// Gallery creates a media gallery component
-func Gallery(items ...MediaItem) ContainerOption {
+// ContainerGallery creates a media gallery component for use inside containers
+func ContainerGallery(items ...MediaItem) ContainerOption {
 	galleryItems := make([]discordgo.MediaGalleryItem, len(items))
 	for i, item := range items {
 		galleryItems[i] = discordgo.MediaGalleryItem{

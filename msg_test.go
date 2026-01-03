@@ -120,7 +120,7 @@ func TestContainer(t *testing.T) {
 	})
 
 	t.Run("adds section", func(t *testing.T) {
-		container := Container(Section())
+		container := Container(ContainerSection())
 
 		c := container.(*discordgo.Container)
 		if len(c.Components) != 1 {
@@ -137,8 +137,8 @@ func TestContainer(t *testing.T) {
 		container := Container(
 			AccentColor(123),
 			Spoiler(),
-			Section(),
-			Divider(),
+			ContainerSection(),
+			ContainerSeparator(),
 		)
 
 		c := container.(*discordgo.Container)
@@ -158,7 +158,7 @@ func TestContainer(t *testing.T) {
 
 func TestSection(t *testing.T) {
 	t.Run("creates empty section", func(t *testing.T) {
-		section := Section()
+		section := ContainerSection()
 
 		opt, ok := section.(containerComponentOption)
 		if !ok {
@@ -180,7 +180,7 @@ func TestSection(t *testing.T) {
 	})
 
 	t.Run("adds text", func(t *testing.T) {
-		section := Section(Text("test"))
+		section := ContainerSection(SectionText("test"))
 
 		opt := section.(containerComponentOption)
 		s := opt.component.(*discordgo.Section)
@@ -200,7 +200,7 @@ func TestSection(t *testing.T) {
 	})
 
 	t.Run("adds multiple text components", func(t *testing.T) {
-		section := Section(Text("first"), Text("second"))
+		section := ContainerSection(SectionText("first"), SectionText("second"))
 
 		opt := section.(containerComponentOption)
 		s := opt.component.(*discordgo.Section)
@@ -212,7 +212,7 @@ func TestSection(t *testing.T) {
 
 	t.Run("sets accessory", func(t *testing.T) {
 		thumbnail := Thumbnail("http://example.com/image.png", "test image")
-		section := Section(Accessory(thumbnail))
+		section := ContainerSection(SectionAccessory(thumbnail))
 
 		opt := section.(containerComponentOption)
 		s := opt.component.(*discordgo.Section)
@@ -229,9 +229,9 @@ func TestSection(t *testing.T) {
 }
 
 func TestText(t *testing.T) {
-	t.Run("creates text display", func(t *testing.T) {
+	t.Run("creates text display for sections", func(t *testing.T) {
 		content := "## Hello\nWorld"
-		text := Text(content)
+		text := SectionText(content)
 
 		opt, ok := text.(sectionComponentOption)
 		if !ok {
@@ -249,13 +249,27 @@ func TestText(t *testing.T) {
 	})
 
 	t.Run("handles empty string", func(t *testing.T) {
-		text := Text("")
+		text := SectionText("")
 
 		opt := text.(sectionComponentOption)
 		td := opt.component.(*discordgo.TextDisplay)
 
 		if td.Content != "" {
 			t.Errorf("expected empty content, got '%s'", td.Content)
+		}
+	})
+
+	t.Run("creates top-level text display", func(t *testing.T) {
+		content := "## Top Level Text"
+		text := TextDisplay(content)
+
+		td, ok := text.(*discordgo.TextDisplay)
+		if !ok {
+			t.Fatal("expected *discordgo.TextDisplay")
+		}
+
+		if td.Content != content {
+			t.Errorf("expected content '%s', got '%s'", content, td.Content)
 		}
 	})
 }
@@ -311,11 +325,11 @@ func TestThumbnail(t *testing.T) {
 	})
 }
 
-func TestDivider(t *testing.T) {
-	t.Run("creates default divider", func(t *testing.T) {
-		divider := Divider()
+func TestSeparator(t *testing.T) {
+	t.Run("creates default container separator", func(t *testing.T) {
+		separator := ContainerSeparator()
 
-		opt, ok := divider.(containerComponentOption)
+		opt, ok := separator.(containerComponentOption)
 		if !ok {
 			t.Fatal("expected containerComponentOption")
 		}
@@ -343,9 +357,9 @@ func TestDivider(t *testing.T) {
 	})
 
 	t.Run("applies with divider false", func(t *testing.T) {
-		divider := Divider(WithDivider(false))
+		separator := ContainerSeparator(WithDivider(false))
 
-		opt := divider.(containerComponentOption)
+		opt := separator.(containerComponentOption)
 		sep := opt.component.(*discordgo.Separator)
 
 		if sep.Divider == nil {
@@ -358,9 +372,9 @@ func TestDivider(t *testing.T) {
 	})
 
 	t.Run("applies spacing", func(t *testing.T) {
-		divider := Divider(Spacing(discordgo.SeparatorSpacingSizeLarge))
+		separator := ContainerSeparator(Spacing(discordgo.SeparatorSpacingSizeLarge))
 
-		opt := divider.(containerComponentOption)
+		opt := separator.(containerComponentOption)
 		sep := opt.component.(*discordgo.Separator)
 
 		if sep.Spacing == nil {
@@ -371,12 +385,29 @@ func TestDivider(t *testing.T) {
 			t.Errorf("expected spacing %d, got %d", discordgo.SeparatorSpacingSizeLarge, *sep.Spacing)
 		}
 	})
+
+	t.Run("creates top-level separator", func(t *testing.T) {
+		separator := Separator()
+
+		sep, ok := separator.(*discordgo.Separator)
+		if !ok {
+			t.Fatal("expected *discordgo.Separator")
+		}
+
+		if sep.Divider == nil {
+			t.Fatal("expected divider to be set")
+		}
+
+		if !*sep.Divider {
+			t.Error("expected divider to be true")
+		}
+	})
 }
 
 func TestActions(t *testing.T) {
-	t.Run("creates actions row", func(t *testing.T) {
+	t.Run("creates container actions row", func(t *testing.T) {
 		button := Button("Test", "test_id")
-		actions := Actions(button)
+		actions := ContainerActionRow(button)
 
 		opt, ok := actions.(containerComponentOption)
 		if !ok {
@@ -396,7 +427,7 @@ func TestActions(t *testing.T) {
 	t.Run("handles multiple buttons", func(t *testing.T) {
 		button1 := Button("Button 1", "id1")
 		button2 := Button("Button 2", "id2")
-		actions := Actions(button1, button2)
+		actions := ContainerActionRow(button1, button2)
 
 		opt := actions.(containerComponentOption)
 		row := opt.component.(*discordgo.ActionsRow)
@@ -407,7 +438,7 @@ func TestActions(t *testing.T) {
 	})
 
 	t.Run("handles empty buttons", func(t *testing.T) {
-		actions := Actions()
+		actions := ContainerActionRow()
 
 		opt := actions.(containerComponentOption)
 		row := opt.component.(*discordgo.ActionsRow)
@@ -601,7 +632,7 @@ func TestLinkButton(t *testing.T) {
 func TestFile(t *testing.T) {
 	t.Run("creates file component", func(t *testing.T) {
 		url := "attachment://file.txt"
-		file := File(url)
+		file := ContainerFile(url)
 
 		opt, ok := file.(containerComponentOption)
 		if !ok {
@@ -623,7 +654,7 @@ func TestFile(t *testing.T) {
 	})
 
 	t.Run("applies spoiler", func(t *testing.T) {
-		file := File("attachment://file.txt", Spoiler())
+		file := ContainerFile("attachment://file.txt", Spoiler())
 
 		opt := file.(containerComponentOption)
 		fc := opt.component.(*discordgo.FileComponent)
@@ -669,7 +700,7 @@ func TestGallery(t *testing.T) {
 		item1 := Media("http://example.com/image1.png", "Image 1", false)
 		item2 := Media("http://example.com/image2.png", "Image 2", true)
 
-		gallery := Gallery(item1, item2)
+		gallery := ContainerGallery(item1, item2)
 
 		opt, ok := gallery.(containerComponentOption)
 		if !ok {
@@ -707,7 +738,7 @@ func TestGallery(t *testing.T) {
 	})
 
 	t.Run("creates empty gallery", func(t *testing.T) {
-		gallery := Gallery()
+		gallery := ContainerGallery()
 
 		opt := gallery.(containerComponentOption)
 		gal := opt.component.(*discordgo.MediaGallery)
@@ -721,7 +752,7 @@ func TestGallery(t *testing.T) {
 func TestAccessory(t *testing.T) {
 	t.Run("sets thumbnail accessory", func(t *testing.T) {
 		thumbnail := Thumbnail("http://example.com/image.png", "test")
-		section := Section(Accessory(thumbnail))
+		section := ContainerSection(SectionAccessory(thumbnail))
 
 		opt := section.(containerComponentOption)
 		s := opt.component.(*discordgo.Section)
@@ -738,7 +769,7 @@ func TestAccessory(t *testing.T) {
 
 	t.Run("sets button accessory", func(t *testing.T) {
 		button := Button("Click", "click_id")
-		section := Section(Accessory(button))
+		section := ContainerSection(SectionAccessory(button))
 
 		opt := section.(containerComponentOption)
 		s := opt.component.(*discordgo.Section)
@@ -760,16 +791,16 @@ func TestComplexMessage(t *testing.T) {
 			Container(
 				AccentColor(5763719),
 				Spoiler(),
-				Section(
-					Text("## Title"),
-					Text("Description text"),
-					Accessory(Thumbnail("http://example.com/img.png", "image")),
+				ContainerSection(
+					SectionText("## Title"),
+					SectionText("Description text"),
+					SectionAccessory(Thumbnail("http://example.com/img.png", "image")),
 				),
-				Divider(),
-				Section(
-					Text("Another section"),
+				ContainerSeparator(),
+				ContainerSection(
+					SectionText("Another section"),
 				),
-				Actions(
+				ContainerActionRow(
 					Button("Action 1", "action1", Style(Primary)),
 					Button("Action 2", "action2", Style(Secondary), Disabled()),
 				),
