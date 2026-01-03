@@ -120,7 +120,7 @@ func TestContainer(t *testing.T) {
 	})
 
 	t.Run("adds section", func(t *testing.T) {
-		container := Container(ContainerSection())
+		container := Container(Section())
 
 		c := container.(*discordgo.Container)
 		if len(c.Components) != 1 {
@@ -137,8 +137,8 @@ func TestContainer(t *testing.T) {
 		container := Container(
 			AccentColor(123),
 			Spoiler(),
-			ContainerSection(),
-			ContainerSeparator(),
+			Section(),
+			Separator(),
 		)
 
 		c := container.(*discordgo.Container)
@@ -158,38 +158,32 @@ func TestContainer(t *testing.T) {
 
 func TestSection(t *testing.T) {
 	t.Run("creates empty section", func(t *testing.T) {
-		section := ContainerSection()
+		section := Section()
 
-		opt, ok := section.(containerComponentOption)
+		sc, ok := section.(sectionComponent)
 		if !ok {
-			t.Fatal("expected containerComponentOption")
+			t.Fatal("expected sectionComponent")
 		}
 
-		s, ok := opt.component.(*discordgo.Section)
-		if !ok {
-			t.Fatal("expected *discordgo.Section")
+		if len(sc.Section.Components) != 0 {
+			t.Errorf("expected 0 components, got %d", len(sc.Section.Components))
 		}
 
-		if len(s.Components) != 0 {
-			t.Errorf("expected 0 components, got %d", len(s.Components))
-		}
-
-		if s.Accessory != nil {
+		if sc.Section.Accessory != nil {
 			t.Error("expected nil accessory")
 		}
 	})
 
 	t.Run("adds text", func(t *testing.T) {
-		section := ContainerSection(SectionText("test"))
+		section := Section(TextDisplay("test"))
 
-		opt := section.(containerComponentOption)
-		s := opt.component.(*discordgo.Section)
+		sc := section.(sectionComponent)
 
-		if len(s.Components) != 1 {
-			t.Fatalf("expected 1 component, got %d", len(s.Components))
+		if len(sc.Section.Components) != 1 {
+			t.Fatalf("expected 1 component, got %d", len(sc.Section.Components))
 		}
 
-		td, ok := s.Components[0].(*discordgo.TextDisplay)
+		td, ok := sc.Section.Components[0].(*discordgo.TextDisplay)
 		if !ok {
 			t.Fatal("expected *discordgo.TextDisplay")
 		}
@@ -200,76 +194,103 @@ func TestSection(t *testing.T) {
 	})
 
 	t.Run("adds multiple text components", func(t *testing.T) {
-		section := ContainerSection(SectionText("first"), SectionText("second"))
+		section := Section(TextDisplay("first"), TextDisplay("second"))
 
-		opt := section.(containerComponentOption)
-		s := opt.component.(*discordgo.Section)
+		sc := section.(sectionComponent)
 
-		if len(s.Components) != 2 {
-			t.Errorf("expected 2 components, got %d", len(s.Components))
+		if len(sc.Section.Components) != 2 {
+			t.Errorf("expected 2 components, got %d", len(sc.Section.Components))
 		}
 	})
 
 	t.Run("sets accessory", func(t *testing.T) {
 		thumbnail := Thumbnail("http://example.com/image.png", "test image")
-		section := ContainerSection(SectionAccessory(thumbnail))
+		section := Section(Accessory(thumbnail))
 
-		opt := section.(containerComponentOption)
-		s := opt.component.(*discordgo.Section)
+		sc := section.(sectionComponent)
 
-		if s.Accessory == nil {
+		if sc.Section.Accessory == nil {
 			t.Fatal("expected accessory to be set")
 		}
 
-		_, ok := s.Accessory.(*discordgo.Thumbnail)
+		_, ok := sc.Section.Accessory.(*discordgo.Thumbnail)
 		if !ok {
 			t.Error("expected accessory to be *discordgo.Thumbnail")
 		}
 	})
+
+	t.Run("works as top-level component", func(t *testing.T) {
+		response := Response(Section(TextDisplay("Top level section")))
+
+		if len(response.Data.Components) != 1 {
+			t.Fatalf("expected 1 component, got %d", len(response.Data.Components))
+		}
+
+		_, ok := response.Data.Components[0].(*discordgo.Section)
+		if !ok {
+			t.Error("expected top-level component to be *discordgo.Section")
+		}
+	})
 }
 
-func TestText(t *testing.T) {
-	t.Run("creates text display for sections", func(t *testing.T) {
+func TestTextDisplay(t *testing.T) {
+	t.Run("creates text display", func(t *testing.T) {
 		content := "## Hello\nWorld"
-		text := SectionText(content)
+		text := TextDisplay(content)
 
-		opt, ok := text.(sectionComponentOption)
+		td, ok := text.(textDisplayComponent)
 		if !ok {
-			t.Fatal("expected sectionComponentOption")
+			t.Fatal("expected textDisplayComponent")
 		}
 
-		td, ok := opt.component.(*discordgo.TextDisplay)
-		if !ok {
-			t.Fatal("expected *discordgo.TextDisplay")
-		}
-
-		if td.Content != content {
-			t.Errorf("expected content '%s', got '%s'", content, td.Content)
+		if td.TextDisplay.Content != content {
+			t.Errorf("expected content '%s', got '%s'", content, td.TextDisplay.Content)
 		}
 	})
 
 	t.Run("handles empty string", func(t *testing.T) {
-		text := SectionText("")
+		text := TextDisplay("")
 
-		opt := text.(sectionComponentOption)
-		td := opt.component.(*discordgo.TextDisplay)
+		td := text.(textDisplayComponent)
 
-		if td.Content != "" {
-			t.Errorf("expected empty content, got '%s'", td.Content)
+		if td.TextDisplay.Content != "" {
+			t.Errorf("expected empty content, got '%s'", td.TextDisplay.Content)
 		}
 	})
 
-	t.Run("creates top-level text display", func(t *testing.T) {
+	t.Run("works as top-level component", func(t *testing.T) {
 		content := "## Top Level Text"
-		text := TextDisplay(content)
+		response := Response(TextDisplay(content))
 
-		td, ok := text.(*discordgo.TextDisplay)
+		if len(response.Data.Components) != 1 {
+			t.Fatalf("expected 1 component, got %d", len(response.Data.Components))
+		}
+
+		td, ok := response.Data.Components[0].(*discordgo.TextDisplay)
 		if !ok {
 			t.Fatal("expected *discordgo.TextDisplay")
 		}
 
 		if td.Content != content {
 			t.Errorf("expected content '%s', got '%s'", content, td.Content)
+		}
+	})
+
+	t.Run("works in sections", func(t *testing.T) {
+		section := Section(TextDisplay("In section"))
+		sc := section.(sectionComponent)
+
+		if len(sc.Section.Components) != 1 {
+			t.Fatalf("expected 1 component, got %d", len(sc.Section.Components))
+		}
+	})
+
+	t.Run("works in containers", func(t *testing.T) {
+		container := Container(TextDisplay("In container"))
+		c := container.(*discordgo.Container)
+
+		if len(c.Components) != 1 {
+			t.Fatalf("expected 1 component, got %d", len(c.Components))
 		}
 	})
 }
@@ -326,135 +347,139 @@ func TestThumbnail(t *testing.T) {
 }
 
 func TestSeparator(t *testing.T) {
-	t.Run("creates default container separator", func(t *testing.T) {
-		separator := ContainerSeparator()
+	t.Run("creates default separator", func(t *testing.T) {
+		separator := Separator()
 
-		opt, ok := separator.(containerComponentOption)
+		sc, ok := separator.(separatorComponent)
 		if !ok {
-			t.Fatal("expected containerComponentOption")
+			t.Fatal("expected separatorComponent")
 		}
 
-		sep, ok := opt.component.(*discordgo.Separator)
-		if !ok {
-			t.Fatal("expected *discordgo.Separator")
-		}
-
-		if sep.Divider == nil {
+		if sc.Separator.Divider == nil {
 			t.Fatal("expected divider to be set")
 		}
 
-		if !*sep.Divider {
+		if !*sc.Separator.Divider {
 			t.Error("expected divider to be true")
 		}
 
-		if sep.Spacing == nil {
+		if sc.Separator.Spacing == nil {
 			t.Fatal("expected spacing to be set")
 		}
 
-		if *sep.Spacing != discordgo.SeparatorSpacingSizeSmall {
-			t.Errorf("expected spacing %d, got %d", discordgo.SeparatorSpacingSizeSmall, *sep.Spacing)
+		if *sc.Separator.Spacing != discordgo.SeparatorSpacingSizeSmall {
+			t.Errorf("expected spacing %d, got %d", discordgo.SeparatorSpacingSizeSmall, *sc.Separator.Spacing)
 		}
 	})
 
 	t.Run("applies with divider false", func(t *testing.T) {
-		separator := ContainerSeparator(WithDivider(false))
+		separator := Separator(WithDivider(false))
 
-		opt := separator.(containerComponentOption)
-		sep := opt.component.(*discordgo.Separator)
+		sc := separator.(separatorComponent)
 
-		if sep.Divider == nil {
+		if sc.Separator.Divider == nil {
 			t.Fatal("expected divider to be set")
 		}
 
-		if *sep.Divider {
+		if *sc.Separator.Divider {
 			t.Error("expected divider to be false")
 		}
 	})
 
 	t.Run("applies spacing", func(t *testing.T) {
-		separator := ContainerSeparator(Spacing(discordgo.SeparatorSpacingSizeLarge))
+		separator := Separator(Spacing(discordgo.SeparatorSpacingSizeLarge))
 
-		opt := separator.(containerComponentOption)
-		sep := opt.component.(*discordgo.Separator)
+		sc := separator.(separatorComponent)
 
-		if sep.Spacing == nil {
+		if sc.Separator.Spacing == nil {
 			t.Fatal("expected spacing to be set")
 		}
 
-		if *sep.Spacing != discordgo.SeparatorSpacingSizeLarge {
-			t.Errorf("expected spacing %d, got %d", discordgo.SeparatorSpacingSizeLarge, *sep.Spacing)
+		if *sc.Separator.Spacing != discordgo.SeparatorSpacingSizeLarge {
+			t.Errorf("expected spacing %d, got %d", discordgo.SeparatorSpacingSizeLarge, *sc.Separator.Spacing)
 		}
 	})
 
-	t.Run("creates top-level separator", func(t *testing.T) {
-		separator := Separator()
+	t.Run("works as top-level component", func(t *testing.T) {
+		response := Response(Separator())
 
-		sep, ok := separator.(*discordgo.Separator)
+		if len(response.Data.Components) != 1 {
+			t.Fatalf("expected 1 component, got %d", len(response.Data.Components))
+		}
+
+		_, ok := response.Data.Components[0].(*discordgo.Separator)
 		if !ok {
-			t.Fatal("expected *discordgo.Separator")
+			t.Error("expected *discordgo.Separator")
 		}
+	})
 
-		if sep.Divider == nil {
-			t.Fatal("expected divider to be set")
-		}
+	t.Run("works in containers", func(t *testing.T) {
+		container := Container(Separator())
+		c := container.(*discordgo.Container)
 
-		if !*sep.Divider {
-			t.Error("expected divider to be true")
+		if len(c.Components) != 1 {
+			t.Fatalf("expected 1 component, got %d", len(c.Components))
 		}
 	})
 }
 
 func TestActions(t *testing.T) {
-	t.Run("creates container actions row", func(t *testing.T) {
+	t.Run("creates action row", func(t *testing.T) {
 		button := Button("Test", "test_id")
-		actions := ContainerActionRow(button)
+		actions := ActionRow(button)
 
-		opt, ok := actions.(containerComponentOption)
+		ar, ok := actions.(actionRowComponent)
 		if !ok {
-			t.Fatal("expected containerComponentOption")
+			t.Fatal("expected actionRowComponent")
 		}
 
-		row, ok := opt.component.(*discordgo.ActionsRow)
-		if !ok {
-			t.Fatal("expected *discordgo.ActionsRow")
-		}
-
-		if len(row.Components) != 1 {
-			t.Errorf("expected 1 component, got %d", len(row.Components))
+		if len(ar.ActionsRow.Components) != 1 {
+			t.Errorf("expected 1 component, got %d", len(ar.ActionsRow.Components))
 		}
 	})
 
 	t.Run("handles multiple buttons", func(t *testing.T) {
 		button1 := Button("Button 1", "id1")
 		button2 := Button("Button 2", "id2")
-		actions := ContainerActionRow(button1, button2)
+		actions := ActionRow(button1, button2)
 
-		opt := actions.(containerComponentOption)
-		row := opt.component.(*discordgo.ActionsRow)
+		ar := actions.(actionRowComponent)
 
-		if len(row.Components) != 2 {
-			t.Errorf("expected 2 components, got %d", len(row.Components))
+		if len(ar.ActionsRow.Components) != 2 {
+			t.Errorf("expected 2 components, got %d", len(ar.ActionsRow.Components))
 		}
 	})
 
 	t.Run("handles empty buttons", func(t *testing.T) {
-		actions := ContainerActionRow()
+		actions := ActionRow()
 
-		opt := actions.(containerComponentOption)
-		row := opt.component.(*discordgo.ActionsRow)
+		ar := actions.(actionRowComponent)
 
-		if len(row.Components) != 0 {
-			t.Errorf("expected 0 components, got %d", len(row.Components))
+		if len(ar.ActionsRow.Components) != 0 {
+			t.Errorf("expected 0 components, got %d", len(ar.ActionsRow.Components))
+		}
+	})
+
+	t.Run("works in containers", func(t *testing.T) {
+		container := Container(ActionRow(Button("Test", "test")))
+		c := container.(*discordgo.Container)
+
+		if len(c.Components) != 1 {
+			t.Fatalf("expected 1 component, got %d", len(c.Components))
 		}
 	})
 }
 
 func TestActionRow(t *testing.T) {
-	t.Run("creates action row", func(t *testing.T) {
+	t.Run("works as top-level component", func(t *testing.T) {
 		button := Button("Test", "test_id")
-		row := ActionRow(button)
+		response := Response(ActionRow(button))
 
-		ar, ok := row.(*discordgo.ActionsRow)
+		if len(response.Data.Components) != 1 {
+			t.Fatalf("expected 1 component, got %d", len(response.Data.Components))
+		}
+
+		ar, ok := response.Data.Components[0].(*discordgo.ActionsRow)
 		if !ok {
 			t.Fatal("expected *discordgo.ActionsRow")
 		}
@@ -632,34 +657,28 @@ func TestLinkButton(t *testing.T) {
 func TestFile(t *testing.T) {
 	t.Run("creates file component", func(t *testing.T) {
 		url := "attachment://file.txt"
-		file := ContainerFile(url)
+		file := File(url)
 
-		opt, ok := file.(containerComponentOption)
+		fc, ok := file.(fileComponent)
 		if !ok {
-			t.Fatal("expected containerComponentOption")
+			t.Fatal("expected fileComponent")
 		}
 
-		fc, ok := opt.component.(*discordgo.FileComponent)
-		if !ok {
-			t.Fatal("expected *discordgo.FileComponent")
+		if fc.FileComponent.File.URL != url {
+			t.Errorf("expected URL '%s', got '%s'", url, fc.FileComponent.File.URL)
 		}
 
-		if fc.File.URL != url {
-			t.Errorf("expected URL '%s', got '%s'", url, fc.File.URL)
-		}
-
-		if fc.Spoiler {
+		if fc.FileComponent.Spoiler {
 			t.Error("expected spoiler to be false")
 		}
 	})
 
 	t.Run("applies spoiler", func(t *testing.T) {
-		file := ContainerFile("attachment://file.txt", Spoiler())
+		file := File("attachment://file.txt", Spoiler())
 
-		opt := file.(containerComponentOption)
-		fc := opt.component.(*discordgo.FileComponent)
+		fc := file.(fileComponent)
 
-		if !fc.Spoiler {
+		if !fc.FileComponent.Spoiler {
 			t.Error("expected spoiler to be true")
 		}
 	})
@@ -700,51 +719,45 @@ func TestGallery(t *testing.T) {
 		item1 := Media("http://example.com/image1.png", "Image 1", false)
 		item2 := Media("http://example.com/image2.png", "Image 2", true)
 
-		gallery := ContainerGallery(item1, item2)
+		gallery := Gallery(item1, item2)
 
-		opt, ok := gallery.(containerComponentOption)
+		mg, ok := gallery.(mediaGalleryComponent)
 		if !ok {
-			t.Fatal("expected containerComponentOption")
+			t.Fatal("expected mediaGalleryComponent")
 		}
 
-		gal, ok := opt.component.(*discordgo.MediaGallery)
-		if !ok {
-			t.Fatal("expected *discordgo.MediaGallery")
+		if len(mg.MediaGallery.Items) != 2 {
+			t.Fatalf("expected 2 items, got %d", len(mg.MediaGallery.Items))
 		}
 
-		if len(gal.Items) != 2 {
-			t.Fatalf("expected 2 items, got %d", len(gal.Items))
+		if mg.MediaGallery.Items[0].Media.URL != item1.URL {
+			t.Errorf("expected URL '%s', got '%s'", item1.URL, mg.MediaGallery.Items[0].Media.URL)
 		}
 
-		if gal.Items[0].Media.URL != item1.URL {
-			t.Errorf("expected URL '%s', got '%s'", item1.URL, gal.Items[0].Media.URL)
-		}
-
-		if gal.Items[0].Description == nil {
+		if mg.MediaGallery.Items[0].Description == nil {
 			t.Fatal("expected description to be set")
 		}
 
-		if *gal.Items[0].Description != item1.Description {
-			t.Errorf("expected description '%s', got '%s'", item1.Description, *gal.Items[0].Description)
+		if *mg.MediaGallery.Items[0].Description != item1.Description {
+			t.Errorf("expected description '%s', got '%s'", item1.Description, *mg.MediaGallery.Items[0].Description)
 		}
 
-		if gal.Items[0].Spoiler != item1.Spoiler {
-			t.Errorf("expected spoiler %t, got %t", item1.Spoiler, gal.Items[0].Spoiler)
+		if mg.MediaGallery.Items[0].Spoiler != item1.Spoiler {
+			t.Errorf("expected spoiler %t, got %t", item1.Spoiler, mg.MediaGallery.Items[0].Spoiler)
 		}
 
-		if !gal.Items[1].Spoiler {
+		if !mg.MediaGallery.Items[1].Spoiler {
 			t.Error("expected second item to be spoiler")
 		}
 	})
 
 	t.Run("creates empty gallery", func(t *testing.T) {
-		gallery := ContainerGallery()
+		gallery := Gallery()
 
-		opt := gallery.(containerComponentOption)
-		gal := opt.component.(*discordgo.MediaGallery)
+		mg := gallery.(mediaGalleryComponent)
 
-		if len(gal.Items) != 0 {
-			t.Errorf("expected 0 items, got %d", len(gal.Items))
+		if len(mg.MediaGallery.Items) != 0 {
+			t.Errorf("expected 0 items, got %d", len(mg.MediaGallery.Items))
 		}
 	})
 }
@@ -752,16 +765,15 @@ func TestGallery(t *testing.T) {
 func TestAccessory(t *testing.T) {
 	t.Run("sets thumbnail accessory", func(t *testing.T) {
 		thumbnail := Thumbnail("http://example.com/image.png", "test")
-		section := ContainerSection(SectionAccessory(thumbnail))
+		section := Section(Accessory(thumbnail))
 
-		opt := section.(containerComponentOption)
-		s := opt.component.(*discordgo.Section)
+		sc := section.(sectionComponent)
 
-		if s.Accessory == nil {
+		if sc.Section.Accessory == nil {
 			t.Fatal("expected accessory to be set")
 		}
 
-		_, ok := s.Accessory.(*discordgo.Thumbnail)
+		_, ok := sc.Section.Accessory.(*discordgo.Thumbnail)
 		if !ok {
 			t.Error("expected accessory to be *discordgo.Thumbnail")
 		}
@@ -769,16 +781,15 @@ func TestAccessory(t *testing.T) {
 
 	t.Run("sets button accessory", func(t *testing.T) {
 		button := Button("Click", "click_id")
-		section := ContainerSection(SectionAccessory(button))
+		section := Section(Accessory(button))
 
-		opt := section.(containerComponentOption)
-		s := opt.component.(*discordgo.Section)
+		sc := section.(sectionComponent)
 
-		if s.Accessory == nil {
+		if sc.Section.Accessory == nil {
 			t.Fatal("expected accessory to be set")
 		}
 
-		_, ok := s.Accessory.(*discordgo.Button)
+		_, ok := sc.Section.Accessory.(*discordgo.Button)
 		if !ok {
 			t.Error("expected accessory to be *discordgo.Button")
 		}
@@ -791,16 +802,16 @@ func TestComplexMessage(t *testing.T) {
 			Container(
 				AccentColor(5763719),
 				Spoiler(),
-				ContainerSection(
-					SectionText("## Title"),
-					SectionText("Description text"),
-					SectionAccessory(Thumbnail("http://example.com/img.png", "image")),
+				Section(
+					TextDisplay("## Title"),
+					TextDisplay("Description text"),
+					Accessory(Thumbnail("http://example.com/img.png", "image")),
 				),
-				ContainerSeparator(),
-				ContainerSection(
-					SectionText("Another section"),
+				Separator(),
+				Section(
+					TextDisplay("Another section"),
 				),
-				ContainerActionRow(
+				ActionRow(
 					Button("Action 1", "action1", Style(Primary)),
 					Button("Action 2", "action2", Style(Secondary), Disabled()),
 				),
@@ -842,6 +853,25 @@ func TestComplexMessage(t *testing.T) {
 
 		if len(actionRow.Components) != 1 {
 			t.Error("expected 1 button in action row")
+		}
+	})
+
+	t.Run("uses components at multiple levels", func(t *testing.T) {
+		response := Response(
+			TextDisplay("Top level text"),
+			Separator(),
+			Section(
+				TextDisplay("Text in section"),
+			),
+			Container(
+				Section(
+					TextDisplay("Text in container section"),
+				),
+			),
+		)
+
+		if len(response.Data.Components) != 4 {
+			t.Fatalf("expected 4 top-level components, got %d", len(response.Data.Components))
 		}
 	})
 }

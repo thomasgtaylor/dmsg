@@ -24,13 +24,30 @@ import "github.com/bwmarrin/discordgo"
 // Component is any Discord message component
 type Component = discordgo.MessageComponent
 
+// unwrappable is implemented by wrapper types that need to be unwrapped
+type unwrappable interface {
+	unwrap() Component
+}
+
+func unwrapComponents(components []Component) []Component {
+	unwrapped := make([]Component, len(components))
+	for i, c := range components {
+		if u, ok := c.(unwrappable); ok {
+			unwrapped[i] = u.unwrap()
+		} else {
+			unwrapped[i] = c
+		}
+	}
+	return unwrapped
+}
+
 // Response creates a standard interaction response
 func Response(components ...Component) *discordgo.InteractionResponse {
 	return &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
 			Flags:      discordgo.MessageFlagsIsComponentsV2,
-			Components: components,
+			Components: unwrapComponents(components),
 		},
 	}
 }
@@ -41,7 +58,7 @@ func Ephemeral(components ...Component) *discordgo.InteractionResponse {
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
 			Flags:      discordgo.MessageFlagsIsComponentsV2 | discordgo.MessageFlagsEphemeral,
-			Components: components,
+			Components: unwrapComponents(components),
 		},
 	}
 }
@@ -52,7 +69,7 @@ func Update(components ...Component) *discordgo.InteractionResponse {
 		Type: discordgo.InteractionResponseUpdateMessage,
 		Data: &discordgo.InteractionResponseData{
 			Flags:      discordgo.MessageFlagsIsComponentsV2,
-			Components: components,
+			Components: unwrapComponents(components),
 		},
 	}
 }
@@ -122,15 +139,30 @@ type SectionOption interface {
 	applyToSection(*discordgo.Section)
 }
 
-// ContainerSection creates a section component for use inside containers
-func ContainerSection(opts ...SectionOption) ContainerOption {
+type sectionComponent struct {
+	*discordgo.Section
+}
+
+func (s sectionComponent) unwrap() Component {
+	return s.Section
+}
+
+func (s sectionComponent) applyToContainer(c *discordgo.Container) {
+	c.Components = append(c.Components, s.Section)
+}
+
+// Section creates a section component (can be used top-level or in containers)
+func Section(opts ...SectionOption) interface {
+	Component
+	ContainerOption
+} {
 	section := &discordgo.Section{
 		Components: []discordgo.MessageComponent{},
 	}
 	for _, opt := range opts {
 		opt.applyToSection(section)
 	}
-	return containerComponentOption{section}
+	return sectionComponent{section}
 }
 
 type sectionComponentOption struct {
@@ -149,24 +181,37 @@ func (o accessoryOption) applyToSection(s *discordgo.Section) {
 	s.Accessory = o.component
 }
 
-// SectionAccessory sets the section's accessory (Button or Thumbnail)
-func SectionAccessory(component Component) SectionOption {
+// Accessory sets the section's accessory (Button or Thumbnail)
+func Accessory(component Component) SectionOption {
 	return accessoryOption{component}
 }
 
-// SectionText creates a text display component for use inside sections
-func SectionText(content string) SectionOption {
-	return sectionComponentOption{
+type textDisplayComponent struct {
+	*discordgo.TextDisplay
+}
+
+func (t textDisplayComponent) unwrap() Component {
+	return t.TextDisplay
+}
+
+func (t textDisplayComponent) applyToSection(s *discordgo.Section) {
+	s.Components = append(s.Components, t.TextDisplay)
+}
+
+func (t textDisplayComponent) applyToContainer(c *discordgo.Container) {
+	c.Components = append(c.Components, t.TextDisplay)
+}
+
+// TextDisplay creates a text display component (can be used top-level, in containers, or in sections)
+func TextDisplay(content string) interface {
+	Component
+	ContainerOption
+	SectionOption
+} {
+	return textDisplayComponent{
 		&discordgo.TextDisplay{
 			Content: content,
 		},
-	}
-}
-
-// TextDisplay creates a text display component for use at top-level
-func TextDisplay(content string) Component {
-	return &discordgo.TextDisplay{
-		Content: content,
 	}
 }
 
@@ -194,22 +239,23 @@ type SeparatorOption interface {
 	applyToSeparator(*discordgo.Separator)
 }
 
-// ContainerSeparator creates a separator component for use inside containers
-func ContainerSeparator(opts ...SeparatorOption) ContainerOption {
-	truth := true
-	spacing := discordgo.SeparatorSpacingSizeSmall
-	separator := &discordgo.Separator{
-		Divider: &truth,
-		Spacing: &spacing,
-	}
-	for _, opt := range opts {
-		opt.applyToSeparator(separator)
-	}
-	return containerComponentOption{separator}
+type separatorComponent struct {
+	*discordgo.Separator
 }
 
-// Separator creates a separator component for use at top-level
-func Separator(opts ...SeparatorOption) Component {
+func (s separatorComponent) unwrap() Component {
+	return s.Separator
+}
+
+func (s separatorComponent) applyToContainer(c *discordgo.Container) {
+	c.Components = append(c.Components, s.Separator)
+}
+
+// Separator creates a separator component (can be used top-level or in containers)
+func Separator(opts ...SeparatorOption) interface {
+	Component
+	ContainerOption
+} {
 	truth := true
 	spacing := discordgo.SeparatorSpacingSizeSmall
 	separator := &discordgo.Separator{
@@ -219,7 +265,7 @@ func Separator(opts ...SeparatorOption) Component {
 	for _, opt := range opts {
 		opt.applyToSeparator(separator)
 	}
-	return separator
+	return separatorComponent{separator}
 }
 
 type withDividerOption struct {
@@ -248,19 +294,27 @@ func Spacing(size discordgo.SeparatorSpacingSize) SeparatorOption {
 	return spacingOption{size}
 }
 
-// ContainerActionRow creates an action row with buttons for use inside containers
-func ContainerActionRow(buttons ...Component) ContainerOption {
-	return containerComponentOption{
+type actionRowComponent struct {
+	*discordgo.ActionsRow
+}
+
+func (a actionRowComponent) unwrap() Component {
+	return a.ActionsRow
+}
+
+func (a actionRowComponent) applyToContainer(c *discordgo.Container) {
+	c.Components = append(c.Components, a.ActionsRow)
+}
+
+// ActionRow creates an action row with buttons (can be used top-level or in containers)
+func ActionRow(buttons ...Component) interface {
+	Component
+	ContainerOption
+} {
+	return actionRowComponent{
 		&discordgo.ActionsRow{
 			Components: buttons,
 		},
-	}
-}
-
-// ActionRow creates an action row with buttons for use at top-level
-func ActionRow(buttons ...Component) Component {
-	return &discordgo.ActionsRow{
-		Components: buttons,
 	}
 }
 
@@ -347,8 +401,16 @@ type FileOption interface {
 	applyToFile(*discordgo.FileComponent)
 }
 
-// ContainerFile creates a file component for use inside containers
-func ContainerFile(url string, opts ...FileOption) ContainerOption {
+type fileComponent struct {
+	*discordgo.FileComponent
+}
+
+func (f fileComponent) applyToContainer(c *discordgo.Container) {
+	c.Components = append(c.Components, f.FileComponent)
+}
+
+// File creates a file component (for use in containers)
+func File(url string, opts ...FileOption) ContainerOption {
 	file := &discordgo.FileComponent{
 		File: discordgo.UnfurledMediaItem{
 			URL: url,
@@ -357,7 +419,7 @@ func ContainerFile(url string, opts ...FileOption) ContainerOption {
 	for _, opt := range opts {
 		opt.applyToFile(file)
 	}
-	return containerComponentOption{file}
+	return fileComponent{file}
 }
 
 // MediaItem represents a media gallery item
@@ -376,8 +438,16 @@ func Media(url, description string, spoiler bool) MediaItem {
 	}
 }
 
-// ContainerGallery creates a media gallery component for use inside containers
-func ContainerGallery(items ...MediaItem) ContainerOption {
+type mediaGalleryComponent struct {
+	*discordgo.MediaGallery
+}
+
+func (m mediaGalleryComponent) applyToContainer(c *discordgo.Container) {
+	c.Components = append(c.Components, m.MediaGallery)
+}
+
+// Gallery creates a media gallery component (for use in containers)
+func Gallery(items ...MediaItem) ContainerOption {
 	galleryItems := make([]discordgo.MediaGalleryItem, len(items))
 	for i, item := range items {
 		galleryItems[i] = discordgo.MediaGalleryItem{
@@ -388,7 +458,7 @@ func ContainerGallery(items ...MediaItem) ContainerOption {
 			Spoiler:     item.Spoiler,
 		}
 	}
-	return containerComponentOption{
+	return mediaGalleryComponent{
 		&discordgo.MediaGallery{
 			Items: galleryItems,
 		},
